@@ -1,0 +1,29 @@
+name: Env Vars Test
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  WORKFLOW_VAR: "set-in-workflow"
+  NON_SECRET_CONFIG: "can-use-for-non-sensitive-config"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      JOB_VAR: "set-in-job"
+    steps:
+      - name: Print all env vars
+        env:
+          STEP_VAR: "set-in-step"
+        run: |
+          echo "WORKFLOW_VAR=$WORKFLOW_VAR"
+          echo "JOB_VAR=$JOB_VAR"
+          echo "STEP_VAR=$STEP_VAR"
+          echo "NON_SECRET_CONFIG=$NON_SECRET_CONFIG"
+          echo "---"
+          echo "GITHUB_TOKEN available: $([ -n "$GITHUB_TOKEN" ] && echo yes || echo no)"
+          echo "GITHUB_ACTOR=$GITHUB_ACTOR"
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"

@@ -1,0 +1,11 @@
+name: Dispatch Test
+on:
+  repository_dispatch:
+    types: [sandbox_test]
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Triggered by ${{ github.event_name }} with payload ${{ toJson(github.event.client_payload) }}"
