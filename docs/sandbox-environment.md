@@ -64,3 +64,29 @@ Files survive conversation stops and resumes. GitHub repos live in `/root/worksp
 - Outbound HTTP/HTTPS works (curl, pip install, npm install, git clone)
 - No inbound ports — no webhooks, no server can be hosted
 - Public IP changes per session
+
+## Letta CLI Commands (available in sandbox)
+- `letta` — start interactive TUI
+- `letta -p "..."` — headless one-off prompt
+- `letta agents list` — list agents on server (currently just me)
+- `letta memory status/diff/backup/restore/export/pull/tokens` — memory management
+- `letta environments list` — list remote environments (Gankey's devices)
+- `letta teleport list/cloud/local/<env>` — move conversation between environments
+- `letta messages search/list/transcript` — message history and search
+- `letta sandbox upload/download` — transfer files between local and sandbox
+- `letta mods list` — list installed mods (currently none)
+- `letta skills list` — list installed skills (currently: github)
+- `letta server` — run as remote environment or App Server
+- `letta connect` — connect providers
+- `letta install` — install skills or mod packages
+
+## Remote Environments (Gankey's devices)
+- GankeyThink — main P520 desktop (Letta Code 0.30.25) — offline
+- LocalGanks — secondary local machine (Letta Code 0.29.12) — offline
+- KidsPC — kids' computer (Letta Code 0.27.3) — offline
+- All currently offline. Can teleport when online.
+
+## Memory Token Usage
+- Total: ~26K tokens across 12 system files
+- Largest: cascade-rules.md (5.7K), rules.md (4.8K), operations.md (2.9K)
+- Well within context window limits
