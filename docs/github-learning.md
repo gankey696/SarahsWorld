@@ -88,8 +88,75 @@ jobs:
           echo "STEP_VAR=$STEP_VAR"
 ```
 
-## Open Questions
+## Answered Questions
 
-- How to trigger workflows from `gh` without a push?
-- Can workflow-level env vars replace repository secrets for non-sensitive config?
-- What is the best way to receive GitHub events in the sandbox without webhooks?
+### Q1: How to trigger workflows from `gh` without a push?
+
+Two methods work from the sandbox:
+
+**`workflow_dispatch`** — manual trigger via API:
+```bash
+gh api repos/gankey696/SarahsWorld/actions/workflows/{workflow_id}/dispatches \
+  --method POST -f ref=main
+```
+- Workflow must include `on: workflow_dispatch:`
+- Returns 204 (no content) on success
+- Run appears within seconds, completes in ~10s on ubuntu-latest
+
+**`repository_dispatch`** — custom event trigger via API:
+```bash
+gh api repos/gankey696/SarahsWorld/dispatches \
+  --method POST \
+  -f event_type=sandbox_test \
+  -f 'client_payload[message]=hello_from_sandbox'
+```
+- Workflow must include `on: repository_dispatch: types: [sandbox_test]`
+- Payload available in workflow as `${{ github.event.client_payload }}`
+- Returns 204 on success
+- Both tested and verified working from the sandbox on 2026-08-21
+
+### Q2: Can workflow-level env vars replace repository secrets for non-sensitive config?
+
+**Yes.** Verified that env vars at workflow, job, and step levels all work correctly:
+- `env:` at workflow level → available in all jobs/steps
+- `env:` at job level → available in all steps in that job
+- `env:` at step level → available only in that step
+- `GITHUB_TOKEN` is NOT exposed as an env var inside steps (it's injected differently)
+- `GITHUB_ACTOR` = `letta-integration[bot]`
+- `GITHUB_REF` = `refs/heads/main` (on push to main)
+
+For non-sensitive config (API endpoints, feature flags, build config), workflow-level env vars work fine. For secrets, you need repo secrets (which we can't manage from the sandbox — see "What Does Not Work").
+
+### Q3: What is the best way to receive GitHub events in the sandbox without webhooks?
+
+**Polling the Events API:**
+```bash
+gh api repos/gankey696/SarahsWorld/events --jq '.[] | {type, created_at, actor: .actor.login}'
+```
+- Returns recent events (PushEvent, CreateEvent, DeleteEvent, etc.)
+- Limited to last 90 days, 300 events
+- No webhook delivery needed
+- Can be polled on a schedule (e.g., via heartbeat cron)
+
+**Polling the Commits API:**
+```bash
+gh api repos/gankey696/SarahsWorld/commits --jq '.[] | {sha: .sha[0:8], message: .commit.message, date: .commit.committer.date}'
+```
+- More structured for tracking code changes
+- Can filter by branch with `?sha=branch-name`
+
+**Polling the Runs API:**
+```bash
+gh api repos/gankey696/SarahsWorld/actions/runs --jq '.workflow_runs[] | {id, status, conclusion, event}'
+```
+- Track workflow run results without webhooks
+
+**Limitation:** No real-time push. All polling. The Events API is the closest to webhooks without configuring one. Webhooks can't be created from the sandbox (no `gh webhook` command, and API webhook creation is untested — would need `gh api repos/.../hooks --method POST` with a valid payload URL, which the sandbox doesn't have a public endpoint for).
+
+## Workflow Files
+
+### Dispatch test (`.github/workflows/dispatch-test.yml`)
+Tests `repository_dispatch` and `workflow_dispatch` triggers. Logs the event name and payload.
+
+### Env vars test (`.github/workflows/env-test.yml`)
+Tests env vars at workflow, job, and step levels. Logs all vars and GITHUB_* context vars.
