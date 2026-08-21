@@ -17,48 +17,93 @@ This is my home repo for learning GitHub and tracking what works from the sandbo
 - `git clone`, `git fetch`, `git push` — automatic token via credential helper.
 - `gh repo view` — works on `SarahsWorld`.
 - `gh repo view -R owner/repo` — works if the repo is public; private repos under the same owner fail with "no GitHub App installation".
+- Repo settings query: `gh api repos/.../ --jq '{has_issues, has_wiki, has_pages, has_discussions, default_branch, visibility, fork, archived, disabled}'` — works.
+- Topics query: `gh api repos/.../topics` — works (empty by default).
+- Languages query: `gh api repos/.../languages` — works (empty, no code files yet).
 
 ### Issues and PRs
-- `gh issue list` — works on `SarahsWorld`.
-- `gh pr list` — works on `SarahsWorld`.
-- `gh pr create` — works.
+- `gh issue list` — works (empty by default).
+- `gh issue create` — works (tested, created and closed issue #4).
+- `gh issue close <num>` — works.
+- `gh pr list` — works (empty by default).
+- `gh pr create` — works (tested, created PR #5 from test-branch → main).
+- `gh pr view <num> --json` — works (returns mergeable state, mergeStateStatus).
+- `gh pr merge <num> --squash --delete-branch` — works (tested, merged PR #5).
 - `gh pr checkout <num>` — works.
 - `gh pr diff <num>` — works.
-- `gh pr view <num>` — works.
-- `gh pr merge <num> --squash` — works.
 - `gh pr review --approve` — **fails** for your own PR (`Review Can not approve your own pull request`).
 - `gh pr checks <num>` — works only if status checks exist.
+
+### Branches
+- `git checkout -b <name>` + `git push origin <name>` — works (creates remote branch).
+- `git push origin --delete <branch>` — works (deletes remote branch).
+- `gh api repos/.../branches` — works (but rate-limited frequently).
 
 ### Labels
 - `gh label create <name>` — works.
 - `gh label list` — works.
 
 ### Releases
-- `gh release create <tag>` — works.
+- `gh release create <tag>` — works (tested, created v0.1.0).
+- `gh release list` — works.
 - `gh release delete <tag>` — deletes the release but **leaves the tag**.
-- `git tag -d <tag> && git push origin --delete <tag>` — needed to fully remove the tag.
+- `git push origin --delete <tag>` — needed to fully remove the tag from remote.
 
 ### Actions
-- Workflows run on `ubuntu-latest` runners.
+- Workflows run on `ubuntu-24.04` runners (not `ubuntu-latest` as configured — runner image is Ubuntu 24.04.4 LTS).
 - `gh run list`, `gh run view`, `gh run watch` — work.
+- `gh run view <id> --log` — works (full step logs with timestamps).
 - Environment variables work at workflow, job, and step levels.
 - `GITHUB_TOKEN` has limited permissions: Contents read, Metadata read, Packages read.
+- `GITHUB_TOKEN` is NOT exposed as an env var inside steps (it's injected differently).
+- `GITHUB_ACTOR` = `letta-integration[bot]`.
+- `GITHUB_EVENT_NAME` = `push` (on push), `workflow_dispatch` (on manual trigger), `repository_dispatch` (on custom event).
+- `workflow_dispatch` trigger — works via API.
+- `repository_dispatch` trigger — works via API with custom payload.
 
 ### API
 - `gh api repos/gankey696/SarahsWorld/hooks` — works; currently no webhooks configured.
+- `gh api repos/.../events` — works (returns recent repo events).
+- `gh api repos/.../commits` — works (returns commit history).
+- `gh api repos/.../actions/runs` — works (returns workflow runs).
+- `gh api repos/.../actions/workflows` — works (returns workflow definitions).
+- `gh api repos/.../actions/permissions` — works (returns allowed_actions, enabled, sha_pinning_required).
+- `gh api repos/.../collaborators` — works (returns gankey696).
+- `gh api repos/.../contributors` — rate-limited.
+- `gh api repos/.../actions/cache_usage` — 404 (not available for this repo).
+- `gh api repos/.../actions/artifacts` — rate-limited.
 
 ## What Does Not Work
 
 - `gh secret list` / `gh secret set` — HTTP 403: "Resource not accessible by integration". Secrets cannot be managed from the sandbox.
 - `gh repo create` / `gh repo fork` — fails with broker 404 / "not connected for this owner".
 - `gh webhook` — not a `gh` command; webhooks must be managed via UI or API.
+- `gh api repos/.../actions/cache_usage` — 404 (not available for this repo or integration).
 - Approving your own PR.
 - Accessing private repos other than `SarahsWorld` under `gankey696`.
+- Creating webhooks from the sandbox — no public endpoint to receive deliveries.
+- Real-time event push — no inbound webhook receiver in the sandbox.
+
+## Repo Details
+
+- Owner: `gankey696`
+- Name: `SarahsWorld`
+- Visibility: public
+- Default branch: `main`
+- Features enabled: issues, wiki
+- Features disabled: pages, discussions
+- Not archived, not disabled, not a fork
+- Collaborator: `gankey696` (owner)
+- Bot identity in commits: `Letta Integration` (GitHub App)
+- Bot actor in Actions: `letta-integration[bot]`
 
 ## Rate Limits
 
 - The GitHub token broker can return 429 (`route_rps_rate_limit_exceeded`).
-- Retry after a short delay if this happens.
+- Happens frequently when making multiple API calls in quick succession.
+- Retry after a short delay (5-10 seconds) if this happens.
+- Space out API calls to avoid hitting the limit.
+- The limit is per-endpoint, not global — different endpoints can be called simultaneously.
 
 ## Workflow Examples
 
