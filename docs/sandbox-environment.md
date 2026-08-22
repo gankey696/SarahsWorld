@@ -3,6 +3,7 @@
 ## Overview
 The Letta Cloud sandbox is a persistent Linux container where the agent runs.
 Files survive conversation stops and resumes. GitHub repos live in `/root/workspace`.
+This is the ONLY place the agent can run — it can't see Gankey's files, network, or tools.
 
 ## OS
 - Debian GNU/Linux 12 (bookworm)
@@ -28,6 +29,8 @@ Files survive conversation stops and resumes. GitHub repos live in `/root/worksp
 - make 4.3
 - gcc 12.2.0
 - zip/unzip
+- google-chrome (Chrome 151.0.7922.173) — headless mode works with `--no-sandbox --headless=new`
+- chrome-headless-shell (downloaded via @puppeteer/browsers, v152.0.7977.54)
 - No Docker
 
 ## Python Packages (pre-installed)
@@ -41,9 +44,19 @@ Files survive conversation stops and resumes. GitHub repos live in `/root/worksp
 - npm install works (tested: lodash installed and imported)
 - bun install works (tested: left-pad installed and imported)
 
-## Cloud Skills (installed but untested)
-- browser-use — control a real browser (navigate, click, type, screenshots, video)
-- computer-use — control GUI applications via Cua Driver (requires host-generated bearer token)
+## Browser Automation (tested 2026-08-22)
+- google-chrome installed at /usr/bin/google-chrome (Chrome 151.0.7922.173)
+- Headless screenshots work: `google-chrome --headless=new --no-sandbox --screenshot=<path> --window-size=1440,900 <url>`
+- CDP (Chrome DevTools Protocol) works: launched with `--remote-debugging-port=9223`, connected via curl to `/json/version` and `/json/list`
+- CDP WebSocket endpoint available for browser automation (navigate, click, type, screenshot, video)
+- dbus errors are cosmetic — browser functions fine without dbus
+- Chrome must be launched with `--no-sandbox` when running as root
+- chrome-headless-shell also available at ~/.cache/letta-browsers/ (downloaded via @puppeteer/browsers)
+- Background Chrome process can time out the shell — use timeout or run in background
+
+## Cloud Skills (installed)
+- browser-use — control a real browser via CDP (TESTED: Chrome launched, CDP endpoint works, screenshots work)
+- computer-use — control GUI applications via Cua Driver (has .cua-driver dir with version_check.json, .daytona/computeruse/ and .daytona/sessions/ dirs present)
 - google-workspace — Gmail, Calendar, Drive, Contacts, Sheets, Docs (NOT connected: `gog` CLI returns 404)
 - searching-and-viewing-slack — read/search Slack channels (NOT connected)
 
@@ -69,18 +82,27 @@ Files survive conversation stops and resumes. GitHub repos live in `/root/worksp
 │       ├── computer-use/
 │       ├── google-workspace/
 │       └── searching-and-viewing-slack/
+├── .cache/
+│   └── letta-browsers/          # Downloaded chrome-headless-shell
+├── .cua-driver/                  # Cua Driver config (computer-use)
+│   └── version_check.json
+├── .daytona/                     # Daytona sessions (computer-use)
+│   ├── computeruse/
+│   └── sessions/
+├── .config/                      # Xfce desktop config (Thunar, dconf, pulse, xfce4)
 ├── workspace/
-│   └── SarahsWorld/          # GitHub repo clone (gankey696/SarahsWorld)
-├── Desktop/
-└── downloads/
+│   └── SarahsWorld/              # GitHub repo clone (gankey696/SarahsWorld)
+├── Desktop/                      # Empty
+└── downloads/                    # Sandbox upload destination
+    └── DefaultBotMaker.md        # Uploaded by Gankey
 ```
 
 ## Memory Path
 `/root/workspace/.letta/agents/agent-2bef131e-d4ea-4632-828c-dba088d9cdd6/memory`
-- `system/` — core memory blocks (persona, rules, cascade-rules, operations, permissions, routing, human, important, index, task, notepad, workarounds, role, agents, learning)
-- `reference/` — on-demand reference files
+- `system/` — core memory blocks (15 files: persona, rules, cascade-rules, operations, permissions, routing, human, important, index, task, notepad, workarounds, role, agents, learning)
+- `reference/` — on-demand reference files (26 files)
 - `projects/` — project caches
-- `skills/` — Sarah's custom skills (booting, noting, responding, researching, swapping, thinking-router, deep-thinking-pipeline, github)
+- `skills/` — Sarah's custom skills (11 skills: booting, noting, responding, researching, swapping, thinking-router, deep-thinking-pipeline, github, heartbeat, messaging, websearching)
 
 ## Persistence
 - Sandbox filesystem survives conversation stops/resumes
@@ -106,21 +128,24 @@ Files survive conversation stops and resumes. GitHub repos live in `/root/worksp
 - `gh api` — works (tested: queried repo contents)
 - Rate limit: 429 on rapid successive gh API calls — retry after a moment
 
-## Letta CLI Commands (available in sandbox)
+## Letta CLI Commands (all tested 2026-08-22)
 - `letta` — start interactive TUI
 - `letta -p "..."` — headless one-off prompt
 - `letta agents list` — list agents on server (currently just me)
-- `letta memory status/diff/backup/restore/export/pull/tokens` — memory management
+- `letta memory status` — shows memory sync status (tested: returns "clean")
+- `letta memory diff/backup/restore/export/pull/tokens` — memory management
 - `letta environments list` — list remote environments (Gankey's devices)
-- `letta teleport list/cloud/local/<env>` — move conversation between environments
-- `letta messages search/list/transcript` — message history and search
-- `letta sandbox upload/download` — transfer files between local and sandbox
+- `letta teleport list` — list teleport destinations (tested: shows GankeyThink)
+- `letta messages list` — message history (tested: returns recent messages)
+- `letta messages search/transcript` — message search and transcript
+- `letta sandbox upload <local-path>` — upload files to sandbox (stored in /root/downloads/)
+- `letta sandbox download <sandbox-path>` — download files from sandbox (limited to /root/downloads/)
 - `letta mods list` — list installed mods (currently none)
-- `letta skills list` — list installed skills
+- `letta skills list` — list installed skills (tested: shows all 11 skills)
+- `letta cron list` — list scheduled cron tasks (currently: Heartbeat)
 - `letta server` — run as remote environment or App Server
 - `letta connect` — connect providers
 - `letta install` — install skills or mod packages
-- `letta cron list` — list scheduled cron tasks (currently: Heartbeat)
 
 ## Remote Environments (Gankey's devices)
 - GankeyThink — main P520 desktop (Letta Code 0.30.25) — online
@@ -129,6 +154,11 @@ Files survive conversation stops and resumes. GitHub repos live in `/root/worksp
 - Can teleport when online.
 
 ## Cron Tasks
-- Heartbeat — scheduled task that wakes the agent on interval
+- Heartbeat — scheduled task that wakes the agent on interval (hourly)
 - Agent ID: agent-2bef131e-d4ea-4632-828c-dba088d9cdd6
 - Conversation ID: conv-51586eaf-66cb-4374-80b8-859cd7134138
+
+## Sandbox Upload/Download
+- `letta sandbox upload` — uploads from Gankey's local machine to sandbox, stored in /root/downloads/
+- `letta sandbox download` — downloads from sandbox to Gankey's local machine, limited to files in /root/downloads/
+- DefaultBotMaker.md was uploaded this way (found in /root/downloads/)
